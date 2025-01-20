@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -122,7 +121,7 @@ fn search_directory(dir: &Path, pattern: &str, matches: &mut Vec<String>) -> Res
     Ok(())
 }
 
-fn get_path(args: &HashMap<String, serde_json::Value>) -> Result<PathBuf> {
+fn get_path(args: &serde_json::Value) -> Result<PathBuf> {
     let path = args["path"]
         .as_str()
         .ok_or(anyhow::anyhow!("Missing path"))?;

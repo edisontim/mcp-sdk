@@ -1,11 +1,8 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use crate::{
-    registry::{ToolHandler, Tools},
-    types::{CallToolRequest, CallToolResponse, ListRequest, Tool, ToolsListResponse},
+    tools::Tools,
+    types::{CallToolRequest, ListRequest, ToolsListResponse},
 };
 
 use super::{
@@ -36,7 +33,7 @@ pub struct ServerBuilder<T: Transport> {
     protocol: ProtocolBuilder<T>,
     server_info: Implementation,
     capabilities: ServerCapabilities,
-    tools: HashMap<String, ToolHandler>,
+    tools: Option<Tools>,
 }
 
 impl<T: Transport> ServerBuilder<T> {
@@ -82,18 +79,9 @@ impl<T: Transport> ServerBuilder<T> {
         self
     }
 
-    pub fn register_tool(
-        &mut self,
-        tool: Tool,
-        f: impl Fn(CallToolRequest) -> Result<CallToolResponse> + Send + Sync + 'static,
-    ) {
-        self.tools.insert(
-            tool.name.clone(),
-            ToolHandler {
-                tool,
-                f: Box::new(f),
-            },
-        );
+    pub fn tools(mut self, tools: Tools) -> Self {
+        self.tools = Some(tools);
+        self
     }
 
     pub fn build(self) -> Server<T> {
@@ -110,7 +98,7 @@ impl<T: Transport> Server<T> {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
             capabilities: Default::default(),
-            tools: HashMap::new(),
+            tools: None,
         }
     }
 
@@ -132,10 +120,9 @@ impl<T: Transport> Server<T> {
                 "notifications/initialized",
                 Self::handle_initialized(state.clone()),
             );
-
-        // Add tools handlers if not already present
-        if !protocol.has_request_handler("tools/list") {
-            let tools = Arc::new(Tools::new(builder.tools));
+        if let Some(tools) = builder.tools {
+            // Add tools handlers if not already present
+            let tools = Arc::new(tools);
             let tools_clone = tools.clone();
             protocol = protocol
                 .request_handler("tools/list", move |_req: ListRequest| {

@@ -80,7 +80,7 @@ pub struct RootCapabilities {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Tool {
+pub struct ToolDefinition {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -91,7 +91,7 @@ pub struct Tool {
 pub struct CallToolRequest {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub arguments: Option<HashMap<String, serde_json::Value>>,
+    pub arguments: Option<serde_json::Value>,
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
     pub meta: Option<serde_json::Value>,
 }
@@ -137,7 +137,7 @@ pub struct ListRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolsListResponse {
-    pub tools: Vec<Tool>,
+    pub tools: Vec<ToolDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     #[serde(rename = "_meta", skip_serializing_if = "Option::is_none")]
