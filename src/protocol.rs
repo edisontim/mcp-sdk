@@ -113,8 +113,8 @@ impl<T: Transport> Protocol<T> {
 
     async fn handle_request(&self, request: JsonRpcRequest) -> Result<()> {
         let handlers = self.request_handlers.lock().await;
-        if let Some(handler) = handlers.get(&request.method) {
-            match handler.handle(request.clone()).await {
+        match handlers.get(&request.method) {
+            Some(handler) => match handler.handle(request.clone()).await {
                 Ok(response) => {
                     let msg = JsonRpcMessage::Response(response);
                     self.transport.send(&msg)?;
@@ -133,18 +133,19 @@ impl<T: Transport> Protocol<T> {
                     let msg = JsonRpcMessage::Response(error_response);
                     self.transport.send(&msg)?;
                 }
+            },
+            _ => {
+                self.transport
+                    .send(&JsonRpcMessage::Response(JsonRpcResponse {
+                        id: request.id,
+                        error: Some(JsonRpcError {
+                            code: ErrorCode::MethodNotFound as i32,
+                            message: format!("Method not found: {}", request.method),
+                            data: None,
+                        }),
+                        ..Default::default()
+                    }))?;
             }
-        } else {
-            self.transport
-                .send(&JsonRpcMessage::Response(JsonRpcResponse {
-                    id: request.id,
-                    error: Some(JsonRpcError {
-                        code: ErrorCode::MethodNotFound as i32,
-                        message: format!("Method not found: {}", request.method),
-                        data: None,
-                    }),
-                    ..Default::default()
-                }))?;
         }
         Ok(())
     }
