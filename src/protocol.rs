@@ -3,19 +3,19 @@ use super::transport::{
     Transport,
 };
 use super::types::ErrorCode;
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::anyhow;
 use async_trait::async_trait;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::{
     collections::HashMap,
-    sync::{atomic::AtomicU64, Arc},
+    sync::{Arc, atomic::AtomicU64},
 };
-use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tokio::sync::oneshot;
 use tokio::time::timeout;
 use tracing::debug;
 
@@ -96,7 +96,9 @@ impl<T: Transport> Protocol<T> {
                     // Remove and send response through the channel
                     let id = response.id;
                     let mut pending = self.pending_requests.lock().await;
-                    if let Some(tx) = pending.remove(&id) {
+                    // Store the result of remove in a local variable first to control drop order
+                    let tx_opt = pending.remove(&id);
+                    if let Some(tx) = tx_opt {
                         // If send fails, the receiver was dropped, just continue
                         let _ = tx.send(response);
                     }
