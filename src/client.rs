@@ -7,7 +7,7 @@ use crate::{
     },
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::debug;
 
 #[derive(Clone)]
@@ -26,19 +26,22 @@ impl<T: Transport> Client<T> {
             capabilities: ClientCapabilities::default(),
             client_info,
         };
+
+        let request_value =
+            serde_json::to_value(request).context("Failed to serialize initialize request")?;
+
         let response = self
-            .request(
-                "initialize",
-                Some(serde_json::to_value(request)?),
-                RequestOptions::default(),
-            )
-            .await?;
-        let response: InitializeResponse = serde_json::from_value(response)
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+            .request("initialize", Some(request_value), RequestOptions::default())
+            .await
+            .context("Failed to send initialize request")?;
+
+        let response: InitializeResponse =
+            serde_json::from_value(response).context("Failed to parse initialize response")?;
 
         if response.protocol_version != LATEST_PROTOCOL_VERSION {
             return Err(anyhow::anyhow!(
-                "Unsupported protocol version: {}",
+                "Unsupported protocol version: expected {}, got {}",
+                LATEST_PROTOCOL_VERSION,
                 response.protocol_version
             ));
         }
@@ -47,7 +50,11 @@ impl<T: Transport> Client<T> {
             "Initialized with protocol version: {}",
             response.protocol_version
         );
-        self.protocol.notify("notifications/initialized", None)?;
+
+        self.protocol
+            .notify("notifications/initialized", None)
+            .context("Failed to send initialized notification")?;
+
         Ok(response)
     }
 
@@ -57,14 +64,28 @@ impl<T: Transport> Client<T> {
         params: Option<serde_json::Value>,
         options: RequestOptions,
     ) -> Result<serde_json::Value> {
-        let response = self.protocol.request(method, params, options).await?;
-        response
-            .result
-            .ok_or_else(|| anyhow::anyhow!("Request failed: {:?}", response.error))
+        let response = self
+            .protocol
+            .request(method, params, options)
+            .await
+            .with_context(|| format!("Request failed for method: {}", method))?;
+
+        response.result.ok_or_else(|| {
+            let error_msg = response
+                .error
+                .as_ref()
+                .map(|e| format!("{}: {}", e.code, e.message))
+                .unwrap_or_else(|| "Unknown error".to_string());
+
+            anyhow::anyhow!("Request '{}' failed: {}", method, error_msg)
+        })
     }
 
     pub async fn start(&self) -> Result<()> {
-        self.protocol.listen().await
+        self.protocol
+            .listen()
+            .await
+            .context("Client protocol listener failed")
     }
 }
 
