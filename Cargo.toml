@@ -10,7 +10,7 @@ members = [
 [package]
 name = "mcp-sdk"
 version = "0.0.3"
-edition = "2024"
+edition = "2021"
 description = "Rust Implementation of Model Context Protocol (MCP)"
 repository = "https://github.com/AntigmaLabs"
 
